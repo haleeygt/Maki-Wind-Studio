@@ -5,7 +5,7 @@ import fitz
 import pytesseract
 
 ROOT = Path(__file__).resolve().parents[1]
-source = ROOT/'appv11.11.18_PDF_OKUMA_DESTEGI.py'
+source = ROOT/'previous_versions/appv11.11.18_PDF_OKUMA_DESTEGI.py'
 ns = {'re': re, 'datetime': datetime, 'Path': Path}
 names = {'vaziyet_plani_pdf_ozeti', '_ondalik_sayi', '_dms_to_decimal',
          '_pdf_sayfa_ocr', '_pdf_tablo_metinleri', 'kurulum_raporu_pdf_oku'}

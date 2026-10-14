@@ -1,4 +1,4 @@
-# MAKI WIND STUDIO v11.11.14 — Sade Veri ve Kalite Özeti
+# MAKI WIND STUDIO v11.11.15 — Sade Veri ve Kalite Özeti
 import datetime
 import hashlib
 import io
@@ -5951,7 +5951,7 @@ dosyalar = [
 # ============================================================
 if sayfa == "Kılavuz":
     st.markdown("## Kılavuz")
-    st.caption("Maki Wind Studio · v11.11.14 · Ölçümden enerji tahminine adım adım")
+    st.caption("Maki Wind Studio · v11.11.15 · Ölçümden enerji tahminine adım adım")
     st.write("Bu program rüzgâr ölçümlerini inceler, sorunlu ölçümleri ayırmaya yardımcı olur, saha ve türbin yerleşimi üzerinde çalışmanızı sağlar ve geçerli ölçümlerden güç eğrisiyle enerji tahmini hesaplar.")
     st.info("Önerilen sıra: Veri Yükleme ve Direk Ayarları → Rüzgar Kaynağı Özeti → Veri İnceleme → İncelemeyi kaydet → Micrositing ve AEP. Bu kılavuz veri yüklemeden de açılır.")
 
@@ -6060,13 +6060,13 @@ Aylık istatistikleri, kalite/kapsam raporunu, manuel işaretleri ve varsa tamam
 
 
 if sayfa == "Ana Sayfa":
-    st.markdown('## <span style="color: #D63384;">Maki Wind Studio</span>', unsafe_allow_html=True)
+    st.markdown('## <span style="color: #000000;">Maki Wind Studio</span>', unsafe_allow_html=True)
     st.caption("Rüzgâr ölçümleri · Veri kalitesi · Micrositing")
     st.markdown("---")
     _h1, _h2, _h3 = st.columns(3)
     _h1.metric("Yüklü veri seti", len(dosyalar))
     _h2.metric("Santral sınırı", "Yüklü" if _v8_sinir_var else "Bekleniyor")
-    _h3.metric("Sürüm", "v11.11.14")
+    _h3.metric("Sürüm", "v11.11.15")
     st.markdown("### " + ("Ölçümlerinizi kontrol ederek devam edin" if dosyalar else "İlk rüzgâr analizinize başlayın"))
     st.write("1. Veri yükleme  →  2. Rüzgâr Kaynağı Özeti  →  3. Enerji analizi")
     if dosyalar:

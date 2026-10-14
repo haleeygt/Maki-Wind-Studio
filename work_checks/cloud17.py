@@ -6,11 +6,11 @@ from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parents[1]
 old = ast.parse((ROOT/'previous_versions/appv11.11.16_OTOMATIK_KLASOR_BAGLANTISI.py').read_text())
-new = ast.parse((ROOT/'appv11.11.17_BULUT_KLASOR_ERISIMI.py').read_text())
+new = ast.parse((ROOT/'previous_versions/appv11.11.17_BULUT_KLASOR_ERISIMI.py').read_text())
 functions = lambda tree: {n.name: ast.dump(n) for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
 assert all(functions(new)[k] == v for k, v in functions(old).items())
 print('PASS all prior functions/classes unchanged')
-for path in sorted(ROOT.glob('appv*.py')):
+for path in sorted([ROOT/'previous_versions/appv11.11.17_BULUT_KLASOR_ERISIMI.py']):
     app = AppTest.from_file(str(path), default_timeout=60).run()
     assert not app.exception, (path.name, app.exception)
     assert any(x.value == 'v11.11.17' for x in app.metric), path.name

@@ -6,7 +6,7 @@ import pandas as pd
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'appv11.11.16_OTOMATIK_KLASOR_BAGLANTISI.py'
+SOURCE = ROOT / 'previous_versions/appv11.11.16_OTOMATIK_KLASOR_BAGLANTISI.py'
 state = {'wind_data_files': [], 'production_result': {'old': True}}
 ns = {'np': np, 'pd': pd, 're': re, 'hashlib': hashlib, 'base64': base64,
       'datetime': datetime, 'app_state': state, 'st': SimpleNamespace(session_state={}), 'LOGGERNET_PARCA_BOYUTU': 128,
@@ -66,7 +66,7 @@ state['wind_data_files'] = [{'name': 'existing.csv', 'source': 'manual', 'bytes'
 rejected(event())
 print('PASS existing manual project not overwritten')
 
-old = ast.parse((ROOT / 'appv11.11.15_SIYAH_BASLIK.py').read_text())
+old = ast.parse((ROOT / 'previous_versions/appv11.11.15_SIYAH_BASLIK.py').read_text())
 new = ast.parse(SOURCE.read_text())
 functions = lambda tree: {n.name: ast.dump(n) for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
 assert all(functions(new).get(k) == v for k, v in functions(old).items())

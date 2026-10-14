@@ -1,4 +1,4 @@
-# MAKI WIND STUDIO v11.11.15 — Sade Veri ve Kalite Özeti
+# MAKI WIND STUDIO v11.11.16 — Sade Veri ve Kalite Özeti
 import datetime
 import hashlib
 import io
@@ -379,6 +379,233 @@ def loggernet_otomatik_senkronize(klasor, mevcut_kayitlar):
         "removed_files": silinen_dosyalar,
         "last_data_update": son_guncelleme,
     }
+
+
+# Browser directory access is read-only; no local path is opened on the cloud host.
+LOGGERNET_TARAYICI_HTML = r'''<!doctype html><html lang="tr"><meta charset="utf-8">
+<style>body{font:13px 'Segoe UI',sans-serif;margin:6px;color:#17366f;background:#f5f9fc;border-radius:10px;padding:10px}button{border:1px solid #8bc53f;border-radius:8px;padding:9px;margin:3px 0;background:#fff;color:#17366f;cursor:pointer}#status{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px}small{display:block;margin-top:6px}button:disabled{opacity:.5;cursor:default}</style>
+<strong>Bilgisayarımdaki LoggerNet klasörü</strong><br>
+<button id="connect">Klasörü bağla / izni yenile</button>
+<button id="scan">Şimdi tara</button><button id="stop">Takibi durdur</button>
+<div id="status">Klasör izni bekleniyor.</div>
+<small>Yalnızca seçili klasördeki WindData.dat dosyaları okunur. Dosyalar analiz için bu bulut uygulamasına gönderilir. Sekme açık kalmalıdır.</small>
+<script>
+let args={},handle=null,folderId=null,running=false,busy=false,pending=null,waiting=null,revision=new Map(),timer=null,db=null,initialized=false;
+const status=document.getElementById('status');
+function show(text){status.textContent=text;parent.postMessage({isStreamlitMessage:true,type:'streamlit:setFrameHeight',height:Math.max(230,document.body.scrollHeight+16)},'*')}
+function emit(value){parent.postMessage({isStreamlitMessage:true,type:'streamlit:setComponentValue',value,dataType:'json'},'*')}
+async function database(){if(db)return db;db=await new Promise((yes,no)=>{let r=indexedDB.open('maki_loggernet_readonly_v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('folders');r.onsuccess=()=>yes(r.result);r.onerror=()=>no(r.error)});return db}
+async function store(value){const d=await database();await new Promise((yes,no)=>{let tx=d.transaction('folders','readwrite');tx.objectStore('folders').put(value,args.session_id);tx.oncomplete=yes;tx.onerror=()=>no(tx.error)})}
+async function load(){const d=await database();return await new Promise((yes,no)=>{let r=d.transaction('folders').objectStore('folders').get(args.session_id);r.onsuccess=()=>yes(r.result);r.onerror=()=>no(r.error)})}
+const matches=name=>name.toLowerCase().endsWith('winddata.dat')&&!name.toLowerCase().includes('rawdata');
+function schedule(){clearTimeout(timer);if(running)timer=setTimeout(scan,15000)}
+async function transmit(value){const id=crypto.randomUUID();value.event_id=id;pending={id};emit(value);await new Promise((resolve,reject)=>{waiting={resolve,reject};pending.timeout=setTimeout(()=>{pending=null;waiting=null;reject(new Error('Sunucudan aktarım teyidi gelmedi. Sonraki taramada yeniden denenecek.'))},90000)})}
+async function scan(){
+ if(!running||busy||!handle)return;
+ if(!args.enabled){show('Takip duraklatıldı: manuel veri seçili.');schedule();return}
+ busy=true;
+ try{
+  if(await handle.queryPermission({mode:'read'})!=='granted'){running=false;show('Klasör izni gerekli. Klasörü bağla düğmesine basın.');return}
+  const entries=[];for await(const [name,h] of handle.entries())if(h.kind==='file'&&matches(name))entries.push([name,h]);
+  entries.sort((a,b)=>a[0].localeCompare(b[0]));
+  let count=0;const warnings=[];
+  for(const [name,h] of entries){
+   if(!running)break;
+   const file=await h.getFile(),stamp=`${file.size}:${file.lastModified}`;
+   if(revision.get(name)===stamp)continue;
+   if(file.size>64*1024*1024){warnings.push(`${name}: 64 MB aktarım sınırını aşıyor; önceki veri korunuyor.`);continue}
+   // LoggerNet may be writing. Recheck metadata and require a complete final line.
+   const bytes=new Uint8Array(await file.arrayBuffer()),after=await h.getFile();
+   if(after.size!==file.size||after.lastModified!==file.lastModified||!bytes.length||bytes[bytes.length-1]!==10){warnings.push(`${name}: yazım sürüyor veya son satır tamamlanmamış; sonraki tarama beklenecek.`);continue}
+   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');
+   if(args.known?.[name]===digest){revision.set(name,stamp);continue}
+   const partSize=4*1024*1024,parts=Math.ceil(bytes.length/partSize),transferId=crypto.randomUUID();
+   for(let part=0;part<parts;part++){
+    const slice=bytes.subarray(part*partSize,Math.min(bytes.length,(part+1)*partSize));
+    let binary='';for(let i=0;i<slice.length;i+=32768)binary+=String.fromCharCode(...slice.subarray(i,i+32768));
+    show(`${name} buluta aktarılıyor… ${part+1}/${parts}`);
+    await transmit({action:'chunk',transfer_id:transferId,part_index:part,parts,folder_id:folderId,folder_name:handle.name,name,mtime_ms:file.lastModified,size:file.size,sha256:digest,base64:btoa(binary)});
+   }
+   revision.set(name,stamp);count++;
+  }
+  if(running){
+   const available=new Set(entries.map(x=>x[0]));const missing=Object.keys(args.known||{}).filter(x=>!available.has(x));
+   show(`${handle.name}: ${entries.length} dosya; ${count} güncelleme. Son tarama: ${new Date().toLocaleTimeString('tr-TR')}.`+(missing.length?'\nKlasörde artık bulunmayan kayıtlar korunuyor: '+missing.join(', '):'')+(warnings.length?'\n'+warnings.join('\n'):'')+'\n15 saniyede bir kontrol edilir.');
+  }
+ }catch(e){show('Aktarım yapılamadı; önceki veri korunuyor. '+e.message)}finally{busy=false;schedule()}
+}
+document.getElementById('connect').onclick=async()=>{
+ try{
+  if(!('showDirectoryPicker'in window)||!isSecureContext){show('Bu tarayıcı klasör iznini desteklemiyor. Uygulamayı güncel Chrome veya Edge içinde açın.');return}
+  if(!args.enabled){show('Manuel veri yerine klasör takibini kullanmak için uygulamadaki “Tarayıcı klasör takibine dön” düğmesine basın.');return}
+  // Picker must run directly from a user gesture; never request write permission.
+  const chosen=await window.showDirectoryPicker({mode:'read',id:'maki-loggernet-readonly'});
+  let same=handle&&await handle.isSameEntry(chosen);
+  if(handle&&!same&&Object.keys(args.known||{}).length){show('Direkleri karıştırmamak için farklı klasörü yeni bir proje sekmesinde bağlayın.');return}
+  handle=chosen;if(!same||!folderId){folderId=crypto.randomUUID();revision.clear()}
+  try{await store({handle,folderId})}catch(_){}
+  running=true;show('Klasör bağlandı; dosyalar taranıyor.');scan();
+ }catch(e){show(e.name==='AbortError'?'Klasör seçimi iptal edildi.':'Klasör izni alınamadı: '+e.message)}
+};
+document.getElementById('scan').onclick=()=>{if(!running){show('Önce Klasörü bağla düğmesiyle okuma izni verin.');return}scan()};
+document.getElementById('stop').onclick=()=>{running=false;clearTimeout(timer);show('Otomatik takip durduruldu. Son alınan ölçümler korunuyor.')};
+window.addEventListener('message',async e=>{
+ if(e.source!==parent||e.data?.type!=='streamlit:render')return;
+ args=e.data.args||{};
+ if(pending&&args.ack?.id===pending.id){clearTimeout(pending.timeout);const wait=waiting;pending=null;waiting=null;if(args.ack.ok)wait.resolve();else wait.reject(new Error(args.ack.message||'Dosya reddedildi.'))}
+ if(!initialized){initialized=true;try{const saved=await load();if(saved){handle=saved.handle;folderId=saved.folderId;if(await handle.queryPermission({mode:'read'})==='granted'){running=true;scan()}else show('Kayıtlı klasör için izni yenileyin.')}}catch(_){} }
+});
+window.addEventListener('beforeunload',()=>{running=false;clearTimeout(timer)});
+parent.postMessage({isStreamlitMessage:true,type:'streamlit:componentReady',apiVersion:1},'*');
+show('Klasörü bağla düğmesine basıp C:\\Campbellsci\\veriler klasörünü seçin.');
+</script></html>'''
+
+
+def tarayici_loggernet_kaydini_hazirla(event):
+    """Validate one complete read-only snapshot before replacing any application data."""
+    if not isinstance(event, dict) or event.get('action') != 'file':
+        raise ValueError('Geçersiz aktarım mesajı.')
+    name = event.get('name', '')
+    if not isinstance(name, str) or not name or any(x in name for x in ('/', '\\', '\x00')):
+        raise ValueError('Geçersiz dosya adı.')
+    if not name.lower().endswith('winddata.dat') or 'rawdata' in name.lower():
+        raise ValueError('Yalnızca WindData.dat dosyaları kabul edilir.')
+    size = event.get('size')
+    if not isinstance(size, int) or isinstance(size, bool) or not 0 < size <= 64 * 1024 * 1024:
+        raise ValueError('Dosya boyutu 0–64 MB aralığında olmalıdır.')
+    encoded = event.get('base64')
+    if not isinstance(encoded, str) or len(encoded) > 4 * ((size + 2) // 3):
+        raise ValueError('Aktarım boyutu uyuşmuyor.')
+    try:
+        content = base64.b64decode(encoded, validate=True)
+    except (ValueError, TypeError):
+        raise ValueError('Dosya aktarımı çözülemedi.') from None
+    if len(content) != size or hashlib.sha256(content).hexdigest() != event.get('sha256'):
+        raise ValueError('Dosya bütünlüğü doğrulanamadı; önceki veri korunuyor.')
+    if not content.endswith(b'\n'):
+        raise ValueError('Son satır tamamlanmamış; sonraki tarama beklenecek.')
+    folder_id = event.get('folder_id', '')
+    if not isinstance(folder_id, str) or not re.fullmatch(r'[a-f0-9-]{36}', folder_id):
+        raise ValueError('Geçersiz klasör kimliği.')
+    mtime = event.get('mtime_ms')
+    if not isinstance(mtime, (int, float)) or isinstance(mtime, bool) or not np.isfinite(mtime) or mtime < 0:
+        raise ValueError('Geçersiz dosya güncelleme zamanı.')
+    parsed = loggernet_oku(content)
+    if parsed.empty or parsed.attrs.get('discarded_invalid_times', 0):
+        raise ValueError('Dosya eksik/bozuk zaman kayıtları içeriyor; önceki veri korunuyor.')
+    return {'name': name, 'bytes': content, 'type': 'text/plain', 'size': size,
+            'source': 'browser_loggernet', 'folder_id': folder_id,
+            'sha256': event['sha256'], 'mtime_ms': float(mtime)}
+
+
+def tarayici_loggernet_kaydini_uygula(event):
+    """Reject mixed sources/folders and preserve order, so existing mast keys remain stable."""
+    record = tarayici_loggernet_kaydini_hazirla(event)
+    existing = app_state.get('wind_data_files', [])
+    if any(x.get('source') != 'browser_loggernet' for x in existing):
+        raise ValueError('Mevcut proje verilerini korumak için klasörü boş bir proje sekmesinde bağlayın.')
+    if any(x.get('folder_id') != record['folder_id'] for x in existing):
+        raise ValueError('Farklı klasörler karıştırılmaz. Yeni klasörü yeni bir proje sekmesinde bağlayın.')
+    records = list(existing)
+    names = [x['name'] for x in records]
+    if record['name'] not in names and any(x.casefold() == record['name'].casefold() for x in names):
+        raise ValueError('Büyük/küçük harfle ayrılan aynı dosya adı var; kaynak klasörü kontrol edin.')
+    if record['name'] in names:
+        records[names.index(record['name'])] = record
+    else:
+        records.append(record)
+    app_state['wind_data_files'] = records
+    app_state['data_source'] = 'Tarayıcı LoggerNet klasörü'
+    app_state['loggernet_last_scan'] = datetime.datetime.now().isoformat(timespec='seconds')
+    app_state['loggernet_last_data_update'] = datetime.datetime.fromtimestamp(
+        max(x['mtime_ms'] for x in records) / 1000).isoformat(timespec='seconds')
+    # Never reuse previously computed energy/map results for refreshed measurements.
+    for key in ('wind_grid', 'wake_result', 'production_result'):
+        app_state[key] = None
+    return record
+
+
+LOGGERNET_PARCA_BOYUTU = 4 * 1024 * 1024
+
+
+def tarayici_loggernet_parcasini_al(event):
+    """Stage bounded chunks in this session; publish only a complete verified file."""
+    name = event.get('name', '')
+    total, index = event.get('size'), event.get('part_index')
+    count = event.get('parts')
+    transfer_id = event.get('transfer_id', '')
+    if (not isinstance(name, str) or not name.lower().endswith('winddata.dat')
+            or 'rawdata' in name.lower() or any(c in name for c in ('/', '\\', '\x00'))
+            or not isinstance(total, int) or isinstance(total, bool) or not 0 < total <= 64 * 1024 * 1024
+            or not isinstance(index, int) or isinstance(index, bool)
+            or not isinstance(count, int) or isinstance(count, bool)
+            or count != (total + LOGGERNET_PARCA_BOYUTU - 1) // LOGGERNET_PARCA_BOYUTU
+            or not 0 <= index < count or not isinstance(transfer_id, str)
+            or not re.fullmatch(r'[a-f0-9-]{36}', transfer_id)):
+        raise ValueError('Geçersiz dosya aktarım parçası.')
+    expected = min(LOGGERNET_PARCA_BOYUTU, total - index * LOGGERNET_PARCA_BOYUTU)
+    encoded = event.get('base64')
+    if not isinstance(encoded, str) or len(encoded) != 4 * ((expected + 2) // 3):
+        raise ValueError('Aktarım parçası boyutu uyuşmuyor.')
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (TypeError, ValueError):
+        raise ValueError('Aktarım parçası çözülemedi.') from None
+    if len(data) != expected:
+        raise ValueError('Aktarım parçası eksik.')
+    metadata = tuple(event.get(k) for k in ('name', 'folder_id', 'size', 'sha256', 'mtime_ms'))
+    if index == 0:
+        st.session_state['_browser_loggernet_transfer'] = {
+            'id': transfer_id, 'metadata': metadata, 'next': 0, 'data': bytearray()}
+    staged = st.session_state.get('_browser_loggernet_transfer')
+    if (not staged or staged['id'] != transfer_id or staged['metadata'] != metadata
+            or staged['next'] != index):
+        raise ValueError('Aktarım sırası uyuşmuyor; dosya sonraki taramada yeniden denenecek.')
+    staged['data'].extend(data)
+    staged['next'] += 1
+    if staged['next'] == count:
+        try:
+            complete = {**event, 'action': 'file',
+                        'base64': base64.b64encode(staged['data']).decode('ascii')}
+            tarayici_loggernet_kaydini_uygula(complete)
+        finally:
+            st.session_state.pop('_browser_loggernet_transfer', None)
+        return True
+    return False
+
+
+def tarayici_loggernet_paneli():
+    folder = Path(__file__).resolve().parent / '.maki_runtime' / 'browser_loggernet_v1'
+    folder.mkdir(parents=True, exist_ok=True)
+    html = folder / 'index.html'
+    if not html.exists() or html.read_text(encoding='utf-8') != LOGGERNET_TARAYICI_HTML:
+        html.write_text(LOGGERNET_TARAYICI_HTML, encoding='utf-8')
+    component = components.declare_component('maki_browser_loggernet_v1', path=str(folder))
+    known = {x['name']: x.get('sha256') for x in app_state.get('wind_data_files', [])
+             if x.get('source') == 'browser_loggernet'}
+    event = component(session_id=_SEKME_OTURUM_ID,
+        enabled=app_state.get('data_source') != 'Manuel dosya yükleme', known=known,
+        ack=st.session_state.get('_browser_loggernet_ack'), default=None,
+        key='browser_loggernet_readonly_v1')
+    if isinstance(event, dict) and event.get('event_id') != st.session_state.get('_browser_loggernet_ack', {}).get('id'):
+        event_id = event.get('event_id')
+        if not isinstance(event_id, str) or not re.fullmatch(r'[a-f0-9-]{36}', event_id):
+            st.error('Geçersiz aktarım kimliği.')
+            return
+        try:
+            if event.get('action') == 'chunk':
+                tarayici_loggernet_parcasini_al(event)
+            else:
+                tarayici_loggernet_kaydini_uygula(event)
+            st.session_state['_browser_loggernet_ack'] = {'id': event_id, 'ok': True}
+            st.session_state.pop('_browser_loggernet_error', None)
+        except Exception as error:
+            st.session_state['_browser_loggernet_error'] = str(error)
+            st.session_state['_browser_loggernet_ack'] = {'id': event_id, 'ok': False,
+                'message': str(error)}
+        st.rerun()
+    if st.session_state.get('_browser_loggernet_error'):
+        st.error(st.session_state['_browser_loggernet_error'])
 
 
 def loggernet_programini_bul():
@@ -5893,6 +6120,18 @@ if st.session_state["aktif_sayfa_v8"] in {"Ham Rüzgar Hızları", "Temizlenmiş
 sayfa = st.session_state["aktif_sayfa_v8"]
 app_state["active_page"] = sayfa
 
+# Read-only browser folder bridge remains mounted on every page while the tab is open.
+with st.sidebar.expander("LoggerNet otomatik bağlantı", expanded=(os.name != "nt" and app_state.get("data_source") != "Manuel dosya yükleme")):
+    st.caption("Bir kez klasör izni verin; değişen WindData dosyaları otomatik alınsın. Güncel Chrome/Edge gerekir. Açık sekme ve internet bağlantısı gereklidir.")
+    if app_state.get("data_source") == "Manuel dosya yükleme":
+        if st.button("Tarayıcı klasör takibine dön", key="browser_loggernet_resume"):
+            if app_state.get("wind_data_files"):
+                st.warning("Mevcut manuel veriyi korumak için klasörü yeni bir proje sekmesinde bağlayın.")
+            else:
+                app_state["data_source"] = "LoggerNet klasörü"
+                st.rerun()
+    tarayici_loggernet_paneli()
+
 # ============================================================
 # LOGGERNET OTOMATİK SENKRONİZASYONU
 # ============================================================
@@ -5904,7 +6143,7 @@ _loggernet_klasoru = app_state.get("loggernet_folder", r"C:\Campbellsci\veriler"
 _loggernet_sync = loggernet_otomatik_senkronize(
     _loggernet_klasoru, app_state.get("wind_data_files", [])
 )
-if app_state.get("data_source") != "Manuel dosya yükleme" and _loggernet_sync["files"]:
+if app_state.get("data_source") not in {"Manuel dosya yükleme", "Tarayıcı LoggerNet klasörü"} and _loggernet_sync["files"]:
     if _loggernet_sync["changed"]:
         app_state["wind_data_files"] = _loggernet_sync["files"]
         app_state["loggernet_new_files"] = _loggernet_sync["new_files"]
@@ -5951,7 +6190,7 @@ dosyalar = [
 # ============================================================
 if sayfa == "Kılavuz":
     st.markdown("## Kılavuz")
-    st.caption("Maki Wind Studio · v11.11.15 · Ölçümden enerji tahminine adım adım")
+    st.caption("Maki Wind Studio · v11.11.16 · Ölçümden enerji tahminine adım adım")
     st.write("Bu program rüzgâr ölçümlerini inceler, sorunlu ölçümleri ayırmaya yardımcı olur, saha ve türbin yerleşimi üzerinde çalışmanızı sağlar ve geçerli ölçümlerden güç eğrisiyle enerji tahmini hesaplar.")
     st.info("Önerilen sıra: Veri Yükleme ve Direk Ayarları → Rüzgar Kaynağı Özeti → Veri İnceleme → İncelemeyi kaydet → Micrositing ve AEP. Bu kılavuz veri yüklemeden de açılır.")
 
@@ -5961,6 +6200,8 @@ if sayfa == "Kılavuz":
 - **LoggerNet klasörü:** Uygulamanın çalıştığı bilgisayardaki WindData dosyaları taranır; dosya değişiklikleri uygulama yeniden çalıştığında kontrol edilir. Klasör yolunu kendi kurulumunuza göre girin. Bulutta çalışan uygulama, Windows bilgisayarınızdaki klasöre doğrudan erişemez.
 - **Manuel dosya yükleme:** TOA5 veya uyumlu CSV dosyanızı seçin. Okuyucu zaman sütununu ve WS1_Avg benzeri hız kanallarını arar. Farklı sütun şemaları ayrıca eşleştirme gerektirebilir.
 - Birden fazla direği ayrı veri setleri olarak yükleyin. Aynı adlı dosyaları ve direkleri karıştırmayın; dosya adı sensör yüksekliği veya arıza kanıtı değildir.
+
+**Bulutta otomatik klasör bağlantısı:** Soldaki **LoggerNet otomatik bağlantı** bölümünde **Klasörü bağla / izni yenile** düğmesine basıp kendi Windows klasörünüzü seçin. Tarayıcı yalnızca okuma izni ister; dosyalar analiz için buluta aktarılır. Uyumlu Chrome/Edge, açık sekme ve internet gerekir. Tarama 15 saniyede birdir; arka plan kısıtları veya uyku takip aralığını uzatabilir. Tarayıcı izin desteklemiyorsa bağlantı kurulmuş sayılmaz. Farklı klasörü/direk grubunu yeni proje sekmesinde bağlayın. Her dosya en fazla 64 MB olabilir; yarım yazılmış veya bozuk aktarım son veriyi değiştirmez. Klasörden silinen dosya çalışma setinden otomatik silinmez; panelde uyarılır.
 
 **Kontrol edin:** Doğru dosya, doğru direk, başlangıç/bitiş tarihleri ve yeni dosyanın gerçekten yüklendiği.
 """)
@@ -6066,7 +6307,7 @@ if sayfa == "Ana Sayfa":
     _h1, _h2, _h3 = st.columns(3)
     _h1.metric("Yüklü veri seti", len(dosyalar))
     _h2.metric("Santral sınırı", "Yüklü" if _v8_sinir_var else "Bekleniyor")
-    _h3.metric("Sürüm", "v11.11.15")
+    _h3.metric("Sürüm", "v11.11.16")
     st.markdown("### " + ("Ölçümlerinizi kontrol ederek devam edin" if dosyalar else "İlk rüzgâr analizinize başlayın"))
     st.write("1. Veri yükleme  →  2. Rüzgâr Kaynağı Özeti  →  3. Enerji analizi")
     if dosyalar:
@@ -6333,83 +6574,94 @@ if sayfa == "Rüzgar Ölçümleri":
                 app_state["data_source"] = "LoggerNet klasörü"
                 app_state["wind_data_files"] = []
                 st.rerun()
-        bulunan_loggernet = loggernet_winddata_dosyalarini_bul(loggernet_klasoru)
-
-        st.markdown("### 📡 LoggerNet Veri Senkronizasyonu")
-        st.caption("LoggerNet veri toplama işlemini yapar; Maki Wind Studio yalnızca güncellenen **WindData.dat** dosyalarını otomatik okur. **RawData.dat** dosyaları kullanılmaz.")
-
-        son_veri_iso = app_state.get("loggernet_last_data_update")
-        son_tarama_iso = app_state.get("loggernet_last_scan")
-        son_veri = datetime.datetime.fromisoformat(son_veri_iso) if son_veri_iso else None
-        son_tarama = datetime.datetime.fromisoformat(son_tarama_iso) if son_tarama_iso else None
-        simdi = datetime.datetime.now()
-        veri_yasi_saat = ((simdi - son_veri).total_seconds() / 3600.0) if son_veri else None
-
-        if not Path(loggernet_klasoru).is_dir():
-            durum_metni = "Klasör bulunamadı"
-        elif not bulunan_loggernet:
-            durum_metni = "WindData bekleniyor"
-        elif veri_yasi_saat is not None and veri_yasi_saat > 48:
-            durum_metni = "Kontrol gerekli"
+        if app_state.get("data_source") == "Tarayıcı LoggerNet klasörü":
+            st.markdown("### 📡 LoggerNet · Tarayıcıdan otomatik aktarım")
+            st.info("Bağladığınız klasör açık sekmede 15 saniyede bir kontrol edilir. Dosyalar salt okunur; LoggerNet dosyası değiştirilmez. Son tarama ve canlı takip durumu soldaki bağlantı panelindedir. Tarayıcı uykuya geçerse takip gecikebilir veya durabilir.")
+            _browser_records = app_state.get("wind_data_files", [])
+            st.metric("Son alınan dosya sayısı", len(_browser_records))
+            st.caption("Aşağıdaki liste son başarıyla alınan dosyaları gösterir; klasöre erişimin şu anda sürdüğünü tek başına kanıtlamaz. Bağlantı kesilirse son veri korunur, yeni veri alınmış sayılmaz.")
+            guvenli_dataframe(pd.DataFrame([{"Dosya": x["name"], "Boyut (MB)": round(x["size"] / 1024**2, 2), "Kaynak dosya güncellemesi": datetime.datetime.fromtimestamp(x["mtime_ms"] / 1000).strftime("%d.%m.%Y %H:%M:%S")} for x in _browser_records]), use_container_width=True, hide_index=True)
         else:
-            durum_metni = "Güncel"
+            bulunan_loggernet = loggernet_winddata_dosyalarini_bul(loggernet_klasoru)
 
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Bağlantı durumu", "Bağlı" if bulunan_loggernet else "Bağlantı yok")
-        k2.metric("Bulunan direk", len(bulunan_loggernet))
-        k3.metric("Son dosya güncellemesi", son_veri.strftime("%d.%m.%Y %H:%M") if son_veri else "—")
-        k4.metric("Veri durumu", durum_metni)
+            st.markdown("### 📡 LoggerNet Veri Senkronizasyonu")
+            st.caption("LoggerNet veri toplama işlemini yapar; Maki Wind Studio yalnızca güncellenen **WindData.dat** dosyalarını otomatik okur. **RawData.dat** dosyaları kullanılmaz.")
 
-        yol_col, yenile_col = st.columns([5, 1])
-        with yol_col:
-            yeni_klasor = st.text_input(
-                "LoggerNet veri klasörü",
-                value=loggernet_klasoru,
-                key="loggernet_klasor_widget_v83",
-                help=r"Varsayılan klasör: C:\Campbellsci\veriler",
-            )
-        with yenile_col:
-            st.write("")
-            st.write("")
-            elle_yenile = st.button("🔄 Şimdi kontrol et", type="primary", use_container_width=True)
+            son_veri_iso = app_state.get("loggernet_last_data_update")
+            son_tarama_iso = app_state.get("loggernet_last_scan")
+            son_veri = datetime.datetime.fromisoformat(son_veri_iso) if son_veri_iso else None
+            son_tarama = datetime.datetime.fromisoformat(son_tarama_iso) if son_tarama_iso else None
+            simdi = datetime.datetime.now()
+            veri_yasi_saat = ((simdi - son_veri).total_seconds() / 3600.0) if son_veri else None
 
-        if yeni_klasor != loggernet_klasoru:
-            app_state["loggernet_folder"] = yeni_klasor
-            app_state["loggernet_last_scan"] = None
-            st.rerun()
-        if elle_yenile:
-            st.rerun()
+            if not Path(loggernet_klasoru).is_dir():
+                durum_metni = "Klasör bulunamadı"
+            elif not bulunan_loggernet:
+                durum_metni = "WindData bekleniyor"
+            elif veri_yasi_saat is not None and veri_yasi_saat > 48:
+                durum_metni = "Kontrol gerekli"
+            else:
+                durum_metni = "Güncel"
 
-        yeni_dosyalar = app_state.get("loggernet_new_files", [])
-        degisen_dosyalar = app_state.get("loggernet_changed_files", [])
-        if yeni_dosyalar:
-            st.success("Yeni direk algılandı: " + ", ".join(yeni_dosyalar))
-            app_state["loggernet_new_files"] = []
-        elif degisen_dosyalar:
-            st.success("Yeni LoggerNet verisi algılandı ve analiz seti güncellendi: " + ", ".join(degisen_dosyalar))
-            app_state["loggernet_changed_files"] = []
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Bağlantı durumu", "Bağlı" if bulunan_loggernet else "Bağlantı yok")
+            k2.metric("Bulunan direk", len(bulunan_loggernet))
+            k3.metric("Son dosya güncellemesi", son_veri.strftime("%d.%m.%Y %H:%M") if son_veri else "—")
+            k4.metric("Veri durumu", durum_metni)
 
-        if bulunan_loggernet:
-            tablo = []
-            for kayit in bulunan_loggernet:
-                dt = datetime.datetime.fromtimestamp(Path(kayit["source_path"]).stat().st_mtime)
-                yas_saat = max((simdi - dt).total_seconds() / 3600.0, 0.0)
-                tablo.append({
-                    "Direk / dosya": kayit["name"],
-                    "Boyut (MB)": round(kayit["size"] / (1024 * 1024), 1),
-                    "Son güncelleme": dt.strftime("%d.%m.%Y %H:%M:%S"),
-                    "Durum": "Güncel" if yas_saat <= 48 else "Kontrol gerekli",
-                })
-            guvenli_dataframe(pd.DataFrame(tablo), use_container_width=True, hide_index=True)
-            tarama_metni = son_tarama.strftime("%d.%m.%Y %H:%M:%S") if son_tarama else "—"
-            st.info(f"Son klasör kontrolü: **{tarama_metni}** · LoggerNet her gün 11:00'de dosyaları güncellediğinde uygulama bir sonraki ekran yenilemesinde değişikliği otomatik algılar.")
-        elif Path(loggernet_klasoru).is_dir():
-            st.warning("Klasör bulundu ancak `WindData.dat` ile biten dosya bulunamadı.")
-        else:
-            st.error(f"LoggerNet klasörü bulunamadı: {loggernet_klasoru}")
+            yol_col, yenile_col = st.columns([5, 1])
+            with yol_col:
+                yeni_klasor = st.text_input(
+                    "LoggerNet veri klasörü",
+                    value=loggernet_klasoru,
+                    key="loggernet_klasor_widget_v83",
+                    help=r"Varsayılan klasör: C:\Campbellsci\veriler",
+                )
+            with yenile_col:
+                st.write("")
+                st.write("")
+                elle_yenile = st.button("🔄 Şimdi kontrol et", type="primary", use_container_width=True)
+
+            if yeni_klasor != loggernet_klasoru:
+                app_state["loggernet_folder"] = yeni_klasor
+                app_state["loggernet_last_scan"] = None
+                st.rerun()
+            if elle_yenile:
+                st.rerun()
+
+            yeni_dosyalar = app_state.get("loggernet_new_files", [])
+            degisen_dosyalar = app_state.get("loggernet_changed_files", [])
+            if yeni_dosyalar:
+                st.success("Yeni direk algılandı: " + ", ".join(yeni_dosyalar))
+                app_state["loggernet_new_files"] = []
+            elif degisen_dosyalar:
+                st.success("Yeni LoggerNet verisi algılandı ve analiz seti güncellendi: " + ", ".join(degisen_dosyalar))
+                app_state["loggernet_changed_files"] = []
+
+            if bulunan_loggernet:
+                tablo = []
+                for kayit in bulunan_loggernet:
+                    dt = datetime.datetime.fromtimestamp(Path(kayit["source_path"]).stat().st_mtime)
+                    yas_saat = max((simdi - dt).total_seconds() / 3600.0, 0.0)
+                    tablo.append({
+                        "Direk / dosya": kayit["name"],
+                        "Boyut (MB)": round(kayit["size"] / (1024 * 1024), 1),
+                        "Son güncelleme": dt.strftime("%d.%m.%Y %H:%M:%S"),
+                        "Durum": "Güncel" if yas_saat <= 48 else "Kontrol gerekli",
+                    })
+                guvenli_dataframe(pd.DataFrame(tablo), use_container_width=True, hide_index=True)
+                tarama_metni = son_tarama.strftime("%d.%m.%Y %H:%M:%S") if son_tarama else "—"
+                st.info(f"Son klasör kontrolü: **{tarama_metni}** · LoggerNet her gün 11:00'de dosyaları güncellediğinde uygulama bir sonraki ekran yenilemesinde değişikliği otomatik algılar.")
+            elif Path(loggernet_klasoru).is_dir():
+                st.warning("Klasör bulundu ancak `WindData.dat` ile biten dosya bulunamadı.")
+            else:
+                if os.name != "nt":
+                    st.info("Bulut uygulaması Windows klasörünü doğrudan göremez. Soldaki LoggerNet otomatik bağlantı bölümünde Klasörü bağla düğmesine basın ve C:\\Campbellsci\\veriler klasörünü seçin. Sonraki güncellemeler sekme açıkken otomatik alınır.")
+                else:
+                    st.error(f"LoggerNet klasörü bulunamadı: {loggernet_klasoru}")
 
         with st.expander("Farklı bir proje için manuel dosya yükle", expanded=False):
-            st.caption("Bu alan yalnızca LoggerNet dışında kalan eski veya harici projeler içindir.")
+            st.caption("Otomatik klasör bağlantısından bağımsız bir veri seti yükler. Mevcut çalışma setini değiştirir; otomatik klasör takibi duraklatılır.")
             yuklenen_wind_dosyalari = st.file_uploader(
                 "Manuel wind data dosyalarını seçin",
                 type=["dat", "csv"],
@@ -6432,7 +6684,7 @@ if sayfa == "Rüzgar Ölçümleri":
 
         if not dosyalar:
             st.markdown(
-                '<div class="empty-state"><h3>WindData bulunamadı</h3><p>LoggerNet klasör yolunu kontrol edin. Dosyalar geldiğinde uygulama bunları otomatik algılar.</p></div>',
+                '<div class="empty-state"><h3>WindData bulunamadı</h3><p>Yerel çalışmada klasör yolunu kontrol edin. Bulutta soldaki LoggerNet otomatik bağlantı bölümünden klasöre okuma izni verin.</p></div>',
                 unsafe_allow_html=True,
             )
             st.stop()

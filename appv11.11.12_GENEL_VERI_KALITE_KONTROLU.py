@@ -1,4 +1,4 @@
-# MAKI WIND STUDIO v11.11.12 — Sade Veri ve Kalite Özeti
+# MAKI WIND STUDIO v11.11.14 — Sade Veri ve Kalite Özeti
 import datetime
 import hashlib
 import io
@@ -5836,6 +5836,7 @@ V8_SAYFALAR = {
     "Veri İnceleme": "Veri İnceleme",
     "Yüksek Çözünürlüklü Topografya": "Topografya Modülü",
     "Micrositing ve AEP": "Üretim Hesaplama",
+    "Kılavuz": "Kılavuz",
 }
 
 if "aktif_sayfa_v8" not in st.session_state:
@@ -5883,6 +5884,7 @@ v8_menu_butonu("Veri İnceleme", "Veri İnceleme", "〽")
 
 st.sidebar.markdown('<div class="v8-menu-caption">PROJE GELİŞTİRME</div>', unsafe_allow_html=True)
 v8_menu_butonu("Micrositing ve AEP", "Üretim Hesaplama", "△")
+v8_menu_butonu("Kılavuz", "Kılavuz", "☰")
 
 if st.session_state["aktif_sayfa_v8"] == "Çoklu Veri Karşılaştırma":
     navigasyona_git("Rüzgar Kaynağı Özeti")
@@ -5947,14 +5949,124 @@ dosyalar = [
 # ============================================================
 # VERİDEN BAĞIMSIZ GİRİŞ EKRANI
 # ============================================================
+if sayfa == "Kılavuz":
+    st.markdown("## Kılavuz")
+    st.caption("Maki Wind Studio · v11.11.14 · Ölçümden enerji tahminine adım adım")
+    st.write("Bu program rüzgâr ölçümlerini inceler, sorunlu ölçümleri ayırmaya yardımcı olur, saha ve türbin yerleşimi üzerinde çalışmanızı sağlar ve geçerli ölçümlerden güç eğrisiyle enerji tahmini hesaplar.")
+    st.info("Önerilen sıra: Veri Yükleme ve Direk Ayarları → Rüzgar Kaynağı Özeti → Veri İnceleme → İncelemeyi kaydet → Micrositing ve AEP. Bu kılavuz veri yüklemeden de açılır.")
+
+    with st.expander("1 · Ölçüm dosyalarını yükleyin", expanded=True):
+        st.markdown("""
+**Veri Yükleme ve Direk Ayarları** sayfasından veri kaynağını seçin.
+- **LoggerNet klasörü:** Uygulamanın çalıştığı bilgisayardaki WindData dosyaları taranır; dosya değişiklikleri uygulama yeniden çalıştığında kontrol edilir. Klasör yolunu kendi kurulumunuza göre girin. Bulutta çalışan uygulama, Windows bilgisayarınızdaki klasöre doğrudan erişemez.
+- **Manuel dosya yükleme:** TOA5 veya uyumlu CSV dosyanızı seçin. Okuyucu zaman sütununu ve WS1_Avg benzeri hız kanallarını arar. Farklı sütun şemaları ayrıca eşleştirme gerektirebilir.
+- Birden fazla direği ayrı veri setleri olarak yükleyin. Aynı adlı dosyaları ve direkleri karıştırmayın; dosya adı sensör yüksekliği veya arıza kanıtı değildir.
+
+**Kontrol edin:** Doğru dosya, doğru direk, başlangıç/bitiş tarihleri ve yeni dosyanın gerçekten yüklendiği.
+""")
+    with st.expander("2 · Direk ve sensör bilgilerini doğrulayın"):
+        st.markdown("""
+Kurulum raporu varsa yükleyin; algılanan bilgileri onaylamadan önce raporla karşılaştırın. Direk koordinatlarını ve her hız/yön sensörünün yüksekliğini doğru girin.
+
+TOA5 dosyasının hız kanalı adı tek başına sensör yüksekliğini belirtmez. Bir direğin yüksekliklerini başka direğe taşımayın. Yüksekliği bilinmeyen ölçümü göbek yüksekliğine dönüştürmeyin.
+
+**Kontrol edin:** Hangi kanalın hangi sensöre ait olduğu, ölçüm yüksekliği, rapor ve veri seti eşleştirmesi. Bazı mevcut ekranlar ve enerjiye aktarım WS1–WS4 kanalları üzerine kuruludur; her dosya şemasının desteklendiği varsayılmamalıdır.
+""")
+    with st.expander("3 · Veri setini ve tarih aralığını seçin; istatistikleri okuyun"):
+        st.markdown("""
+**Rüzgar Kaynağı Özeti** sayfasında bir veri seti ve tarih aralığı seçin. Ham veya temizlenmiş görünümü seçerek aylık ortalama, medyan, minimum, maksimum ve standart sapmayı inceleyin. Grafikler bölümünü açarak zaman serilerini, hız/yön dağılımlarını ve yükseklik profilini değerlendirin.
+
+Ortalama genel düzeyi, medyan ortadaki ölçümü, standart sapma ise değişkenliği gösterir. Minimum ve maksimum değerler ayrıca incelenmelidir. Seçilen veri ve dönem istatistikleri etkiler.
+
+**Önemli:** Eksik ölçümleri olan bir ayın ortalaması yalnızca kalan geçerli ölçümlerin ortalamasıdır; bütün ayın temsil edildiğini göstermez. Aylık tabloyu veri kapsamı raporuyla birlikte okuyun.
+""")
+    with st.expander("4 · Ham, gerçek temiz ve tahmini veriyi ayırın"):
+        st.markdown("""
+- **Ham veri:** Dosyadan okunan ölçümler korunur; sorunlu sensör değerleri de bulunabilir. Orijinal yüklenen dosya değiştirilmez.
+- **Gerçek temiz ölçüm:** Fiziksel aralık kontrolleri, otomatik olaylar ve manuel kalite işaretlerinden sonra kalan gerçek ölçümlerdir. Dışlanan değer boş bırakılır; mevcut zaman satırı korunur. Dosyada hiç bulunmayan zamanlar kapsam hesabında eksik sayılır.
+- **Tahmini aday:** Aynı direğin diğer sağlam ölçümlerinden modellenen tamamlama adayıdır. Kaynak sütunuyla ayrılır, ayrı CSV'ye çıkarılır ve aktif enerji hesabına dahil edilmez.
+
+Örnek: 100 ölçümün 10'u dışlanırsa 90 gerçek ölçüm ve 10 boş değer kalır. Ortalama 90 ölçümden hesaplanır. Tahmin eklense bile tahmini kayıt gerçek ölçüme dönüşmez.
+
+**Ham Veri** görünümünü seçmek enerji hesabını ham veriye geçirmez. Temizlenmiş etiketi, kalan ölçümlerin bağımsız olarak doğrulandığı anlamına gelmez.
+""")
+    with st.expander("5 · Kalite işaretlerini ve zaman eksenini inceleyin"):
+        st.markdown("""
+**Yüklenen bütün dosyaların ön kontrol özeti** ile **Veri kalitesi ve enerjiye uygunluk raporu** bölümlerini açın.
+- Sayısal olmayan/sonsuz ve 0–45 m/s dışındaki hızlar temiz ölçümden dışlanır. Bu aralık uygulama tercihidir; bütün cihazlar için doğrulanmış fiziksel sınır değildir.
+- Uzun sıfıra yakın veya sabit ölçüm, süre ve en az iki başka sensörden destek koşullarıyla işaretlenebilir. Tek sıfır, kısa sıfır dizisi veya bütün sensörlerin birlikte sakin olması tek başına dışlama nedeni değildir.
+- İki destek sensörü yoksa bu çapraz kontrol çalışmaz. Ani sıçrama, buzlanma, kalibrasyon değişimi ve direk gölgelemesi gibi sorunlar ayrıca incelenmelidir.
+- Yinelenen/geçersiz zamanları, kayıt aralığını, beklenen ve geçerli kayıt sayılarını, aylık kapsamı ve en uzun boşluğu kontrol edin.
+
+Gerekirse **Sorunlu ölçümleri işaretle** bölümünde sensör ve zaman aralığı seçin. Geri alma işlemi mevcut sürümde seçili sensörün tüm manuel işaretlerini kaldırır; ayrıntılı işlem geçmişi değildir. **Veri İnceleme** sayfasında ham/temiz tabloyu karşılaştırıp CSV indirebilirsiniz.
+
+Otomatik işaret arıza teşhisi değildir. Üst sensörün alt sensörden düşük ölçmesi tek başına hata değildir; gerçek sakinliği silmeyin. Windographer karşılaştırmasını aynı dönem, sensör, zaman dilimi, filtreler ve geçerli kayıt sayılarıyla yapın.
+""")
+    with st.expander("6 · Eksik veri tamamlama yöntemini sınayın"):
+        st.markdown("""
+**Eksik veri tamamlama · yöntem testi** bölümünde hedef sensörü, aynı direkteki sağlam referansı, test boşluğu uzunluğunu ve test güç eğrisini seçin. **Sağlam dönemlerde yöntemi test et** düğmesine basın.
+
+Model hedef hızı referans hızından doğrusal ilişkiyle tahmin eder. Ardışık test blokları eğitimden çıkarılır; iki tarafta yedişer günlük tampon kullanılır. Yeterli ortak ölçüm ve test bloğu yoksa model verilmez. İlişki katsayıları her direğin kendi verisinden hesaplanır.
+
+Ortalama hız sapması, MAE (ortalama mutlak hata), RMSE (büyük hatalara daha duyarlı hata ölçüsü) ve güç eğrisi enerji sapmasını birlikte okuyun. Eğitimde 0,25 m/s üzerindeki ortak ölçümler kullanılır; düşük hızlara etkisi ayrıca değerlendirilmelidir. Adaylar referansın eğitim aralığı dışında üretilmez.
+
+Güç eğrisi testi hedef sensör yüksekliğindedir; göbek dönüşümünü veya hava yoğunluğunu doğrulamaz. İyi test sonucu, gerçek eksik dönemin doğru tamamlandığını kanıtlamaz. Mevsim/yön etkisi, referans kalitesi ve tahmin belirsizliği ayrıca değerlendirilmelidir. Aday CSV aktif enerji girdisi değildir.
+""")
+    with st.expander("7 · İncelemeyi kaydedin ve enerji hesabına geçin"):
+        st.markdown("""
+Veriyi ve işaretleri inceledikten sonra **İncelemeyi kaydet · Enerji hesabına geç** düğmesini kullanın. Uygun zaman ekseni veya geçerli referans ölçümü yoksa geçiş kapalıdır.
+
+Bu işlem yalnızca kullanıcı inceleme kaydıdır; bilimsel onay, ölçüm sertifikası veya Windographer eşdeğerliği değildir. Veri, seçili dönem, yükseklikler ya da kalite işaretleri değişirse önceki kayıt geçersizleşebilir; yeniden inceleyin.
+
+Kalite işaretleri ve inceleme kaydı yerel proje sekmesi kapsamında saklanır. Bu yapı bütün tarayıcı sekmelerinde ortak proje veritabanı değildir. Önemli raporları ve CSV çıktılarını ayrıca saklayın.
+""")
+    with st.expander("8 · Türbini seçin; güç ve enerji hesabını okuyun"):
+        st.markdown("""
+**Micrositing ve AEP** sayfasında ilgili ölçüm verisini, türbin modelini, göbek yüksekliğini, türbin adedini ve kayıp senaryosunu kontrol edin. İsteğe bağlı topografya adımı görünüyorsa yalnızca elinizdeki doğrulanmış kaynaklarla ilerleyin.
+
+Enerji hesabının sırası:
+1. Gerçek temiz referans ölçümleri alınır.
+2. Farklı yüksekliğe dönüşüm gerekiyorsa ölçümlerden hesaplanan shear (yükseklikle hız değişimi) kullanılır. En az iki farklı geçerli yükseklik ve 30 ortak kayıt gerekir. Hesaplanamıyorsa sessizce sabit alpha kullanılmaz; aynı ölçüm yüksekliğinde dönüşüm gerekmez.
+3. Her geçerli zamandaki göbek hızı, seçili türbinin gömülü güç eğrisinde güce çevrilir. Birden fazla direk kullanılırsa o zamandaki mevcut göbek hızlarının ortalaması alınır; bu işlem tek başına doğrulanmış mekânsal akış modeli değildir.
+4. Güç (kW) × özgün kayıt süresi (saat) = enerji (kWh). Türbin adedi uygulanır. Eksik kayıtlar süreyi büyütmez ve tahminle doldurulmaz.
+5. Wake, kullanılabilirlik, elektrik ve diğer tanımlı kayıplar çarpan olarak uygulanır. Örneğin %10 ve %5 kayıp birlikte 0,90 × 0,95 çarpanıdır.
+
+**Geçerli kayıtlardan net enerji tahmini**, yalnızca hesaplanan kayıtlara aittir; boşluklar dahil bütün dönem üretimi değildir. Ölçülmüş elektrik üretimi de değildir. Birden fazla direğin farklı kayıt aralıklarıyla birleştirilmesi ayrıca doğrulanmalıdır. Güç eğrisinin modeli, nominal gücü ve hava yoğunluğu koşulları özgün belgelerle teyit edilmelidir.
+""")
+    with st.expander("9 · Yıllık Net Üretim ve kapasite faktörünü doğru yorumlayın"):
+        st.markdown("""
+Yıllık ön tahmin için mevcut uygulamanın koşulları birlikte sağlanmalıdır:
+- En az 365 günlük zaman aralığı.
+- Seçilen aralıktaki her yıl-ay için en az %90 geçerli gerçek referans ölçümü.
+- En uzun tek eksik/dışlanan aralık en fazla 2 saat.
+- Uygun zaman ekseni; çoklu direkte kullanılan her direğin kapsam koşullarını sağlaması.
+
+Koşullar sağlanmazsa **Yıllık Net Üretim** ve **kapasite faktörü** “Hesaplanmadı” olur. Eksik dönem sıfır üretim kabul edilmez; kalan ölçümlerin genel ortalamasıyla yıllık üretim türetilmez.
+
+Koşullar geçerse takvim aylarına göre ortalama net güç, normal 365 günlük yılın ay süreleriyle ağırlıklandırılır. Kapasite faktörü = yıllık net enerji / (kurulu güç × 8.760 saat). Bu sonuç bir ön tahmindir.
+
+Bu kapsam eşikleri uygulama içi kontrollerdir; IEC/MEASNET standardı veya nihai AEP doğrulaması değildir. Uzun dönem temsil, yoğunluk, kalibrasyon ve akış modeli ayrıca doğrulanmalıdır. Menüdeki **P50/P75/P90**, mevcut sürümde kayıp paketi adlarıdır; istatistiksel aşılma olasılığı hesaplanmaz.
+""")
+    with st.expander("10 · Saha, harita, yerleşim ve çıktılarla çalışın"):
+        st.markdown("""
+KML/KMZ ile saha sınırını yükleyebilir, koordinatları ve çalışma alanını kontrol edebilir, türbin noktalarını oluşturabilir veya düzenleyebilirsiniz. Mevcut yerleşim ve mesafe kontrolleri hâkim rüzgâr yönü ile çapraz/rüzgâr altı açıklıkları değerlendirmeye yardımcı olur; nihai mühendislik uygunluk onayı değildir.
+
+GWA rüzgâr haritası, topografya ve diğer harita araçları kaynak incelemesine yardımcı olur. Raster değerleri ve koordinat doğruluğu bağımsız doğrulanmadan enerji girdisi sayılmamalıdır. Yerleşim bazında yıllık AEP çıktısı mevcut sürümde kapalıdır; ortalama saha hızını doğrudan güç eğrisine uygulamak zaman serisi hesabının yerini tutmaz.
+
+Aylık istatistikleri, kalite/kapsam raporunu, manuel işaretleri ve varsa tamamlama adaylarını ayrı CSV dosyaları olarak saklayın. Sonuçları paylaşırken direği, sensörü, dönemi, yükseklikleri, veri kapsamını, boşlukları, türbin eğrisini ve kayıp varsayımlarını belirtin.
+""")
+    st.warning("Açık doğrulamalar: Windows'ta gerçek kullanım ve görsel kontrol; farklı direk ve şemalarda kalite eşikleri; Windographer ile temiz veri eşdeğerliği; tamamlamanın bağımsız enerji doğrulaması; güç eğrisi/yoğunluk ve göbek dönüşümü; uzun dönem düzeltmesi, nihai AEP, gerçek P50/P75/P90 ve GWA raster doğruluğu. İnceleme kaydı veya kapsam kontrolü bu çalışmaların yerine geçmez.")
+    st.stop()
+
+
 if sayfa == "Ana Sayfa":
-    st.markdown("## Maki Wind Studio")
+    st.markdown('## <span style="color: #D63384;">Maki Wind Studio</span>', unsafe_allow_html=True)
     st.caption("Rüzgâr ölçümleri · Veri kalitesi · Micrositing")
     st.markdown("---")
     _h1, _h2, _h3 = st.columns(3)
     _h1.metric("Yüklü veri seti", len(dosyalar))
     _h2.metric("Santral sınırı", "Yüklü" if _v8_sinir_var else "Bekleniyor")
-    _h3.metric("Sürüm", "v11.11.12")
+    _h3.metric("Sürüm", "v11.11.14")
     st.markdown("### " + ("Ölçümlerinizi kontrol ederek devam edin" if dosyalar else "İlk rüzgâr analizinize başlayın"))
     st.write("1. Veri yükleme  →  2. Rüzgâr Kaynağı Özeti  →  3. Enerji analizi")
     if dosyalar:

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 ROOT=Path(__file__).resolve().parents[1]
-p=ROOT/'appv11.11.19_DOGRUDAN_ENERJI_ERISIMI.py'
+p=ROOT/'previous_versions/appv11.11.19_DOGRUDAN_ENERJI_ERISIMI.py'
 ns={'pd':pd,'np':np,'re':re,'hashlib':hashlib,'json':json,'math':math,'datetime':datetime,
     'st':SimpleNamespace(session_state={}), 'app_state':{},
     'RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}

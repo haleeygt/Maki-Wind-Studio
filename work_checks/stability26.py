@@ -4,7 +4,7 @@ import ast,contextlib,hashlib,io,json,math,os,re,tempfile,uuid,zipfile,gzip
 import numpy as np,pandas as pd,tifffile
 from pandas.testing import assert_frame_equal
 from streamlit.testing.v1 import AppTest
-ROOT=Path(__file__).resolve().parents[1];OLD=ROOT/'previous_versions/appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py';NEW=ROOT/'appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
+ROOT=Path(__file__).resolve().parents[1];OLD=ROOT/'previous_versions/appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py';NEW=ROOT/'appv11.11.27_SABIT_SAHA_RENK_OLCEGI.py'
 BANNER='LoggerNet TOA5 veya standart CSV WindData dosyasını güvenli biçimde okur.'
 names={'_loggernet_okuma_kilidi','_loggernet_cache_dizini','_loggernet_oku_dogrudan','loggernet_oku'}
 for source,leaks in [(OLD,True),(NEW,False)]:

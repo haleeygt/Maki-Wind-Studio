@@ -3,7 +3,7 @@ from pathlib import Path
 import ast,base64,io,json
 import numpy as np,pandas as pd,tifffile
 from streamlit.testing.v1 import AppTest
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.27_SABIT_SAHA_RENK_OLCEGI.py'
 source=SOURCE.read_text();node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='_gwa_raster_bytes_getir')
 buf=io.BytesIO();tifffile.imwrite(buf,np.linspace(5,7,40000,dtype=np.float32).reshape(200,200),extratags=[(33550,'d',3,(.002,.002,0),False),(33922,'d',6,(0,0,0,27.8,41.2,0),False),(34735,'H',8,(1,1,0,1,2048,0,1,4326),False)])
 replacement="def _gwa_raster_bytes_getir(*args, **kwargs):\n    return base64.b64decode("+repr(base64.b64encode(buf.getvalue()).decode())+"), 'SYNTHETIC TEST RASTER', 'test', None\n"
@@ -18,6 +18,7 @@ state['sensor_heights']={'Generic_Mast.csv':dict(zip(['WS1_Avg','WS2_Avg','WS3_A
 kml=b'<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>28,41 28.025,41 28.025,41.025 28,41.025 28,41</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></kml>'
 state['santral_boundary']={'name':'Generic.kml','bytes':kml};state['micrositing_topography_ready']=True
 state['turbine_count']=1
+state['wind_map_center']=[41.04,28.04]
 for key,value in [('direk_kullan_1',True),('direk_lat_1',41.012),('direk_lon_1',28.012)]:a.session_state[key]=value
 a.sidebar.button(key='v8_nav_Üretim Hesaplama').click().run();assert not a.exception,a.exception
 components=a.get('component_instance')
@@ -27,6 +28,8 @@ for component in components:
  if 'wind' in args and 'km' in args:found.append(args)
 assert len(found)==1,[(x.proto.component_name,x.proto.json_args[:100]) for x in components]
 args=found[0];assert args['wind'] and args['wind']['matrix']
+initial_scale=dict(args['wind']['scale']);assert initial_scale['scope']=='santral'
+initial_range=(args['wind']['vmin'],args['wind']['vmax'])
 assert args['polygon']==[[28.,41.],[28.025,41.],[28.025,41.025],[28.,41.025],[28.,41.]]
 assert args['wind']['vmin']>0 and args['wind']['vmax']>args['wind']['vmin']
 assert len(args['wind']['latitudes'])<=60 and len(args['wind']['longitudes'])<=60
@@ -36,9 +39,16 @@ print('PASS complete page passes actual calculated wind grid and unchanged KML b
 map_component=next(x for x in components if 'km' in json.loads(x.proto.json_args))
 states=a._tree.get_widget_states()
 move=states.widgets.add();move.id=map_component.proto.id
-move.json_value=json.dumps({'action':'move','event_id':'test_move_25','lat':41.014,'lon':28.014})
+move.json_value=json.dumps({'action':'move','event_id':'test_move_25','lat':41.0125,'lon':28.0125})
 a._run(states);assert not a.exception,a.exception
-assert a.session_state['app_state']['wind_map_center']==[41.014,28.014]
+assert a.session_state['app_state']['wind_map_center']==[41.0125,28.0125]
+moved_args=next(json.loads(x.proto.json_args) for x in a.get('component_instance') if 'km' in json.loads(x.proto.json_args))
+assert moved_args['wind']['scale']==initial_scale
+assert (moved_args['wind']['vmin'],moved_args['wind']['vmax'])==initial_range
+assert not any('Header satırı sabit' in element.value for element in a.markdown)
+print('PASS moving working-area center from outside to plant center preserves exact color reference and limits; no technical text leak',flush=True)
 a.button(key='big_square_reset').click().run();assert not a.exception,a.exception
 assert a.session_state['app_state']['wind_map_center'] is None
+reset_args=next(json.loads(x.proto.json_args) for x in a.get('component_instance') if 'km' in json.loads(x.proto.json_args))
+assert reset_args['wind']['scale']==initial_scale
 print('PASS one drag event updates only the working center; Reset persists across rerun without replaying stale component value',flush=True)

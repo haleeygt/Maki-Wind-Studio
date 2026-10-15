@@ -6,7 +6,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 ROOT=Path(__file__).resolve().parents[1]
 OLD=ROOT/'previous_versions/appv11.11.23_TARAYICI_AKISINA_DONUS.py'
-NEW=ROOT/'appv11.11.24_BELLEK_KULLANIMI_IYILESTIRMESI.py'
+NEW=ROOT/'appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py'
 warnings.filterwarnings('ignore',category=UserWarning)
 def reader(path):
  ns={'np':np,'pd':pd,'re':re,'RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}

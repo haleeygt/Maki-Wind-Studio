@@ -3,7 +3,7 @@ import ast,contextlib,threading,time,sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import numpy as np,pandas as pd,re,streamlit as st
-source=Path(__file__).resolve().parents[1]/'appv11.11.24_BELLEK_KULLANIMI_IYILESTIRMESI.py'
+source=Path(__file__).resolve().parents[1]/'appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py'
 ns={'pd':pd,'np':np,'st':st,'re':re,'__name__':'maki_reader_concurrency_test','RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}
 for node in ast.parse(source.read_text()).body:
  if isinstance(node,ast.FunctionDef) and node.name in {'_loggernet_okuma_kilidi','loggernet_oku'}:

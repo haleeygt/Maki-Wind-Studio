@@ -3,11 +3,14 @@ import ast,json,math,re
 from pathlib import Path
 import numpy as np,pandas as pd
 from playwright.sync_api import sync_playwright
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.27_SABIT_SAHA_RENK_OLCEGI.py';tree=ast.parse(SOURCE.read_text())
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py';tree=ast.parse(SOURCE.read_text())
 node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='suruklenebilir_calisma_karesi')
 html=next(n.value.value for n in ast.walk(node) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='html' for t in n.targets))
 helper=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='surukle_ruzgar_overlay_uret')
-ns={'pd':pd,'np':np,'math':math};exec(compile(ast.Module(body=[helper],type_ignores=[]),str(SOURCE),'exec'),ns)
+ns={'pd':pd,'np':np,'math':math}
+for n in tree.body:
+ if isinstance(n,ast.FunctionDef) and n.name in {'latlon_xy_donustur','kare_calisma_alani_uret'}:exec(compile(ast.Module(body=[n],type_ignores=[]),str(SOURCE),'exec'),ns)
+exec(compile(ast.Module(body=[helper],type_ignores=[]),str(SOURCE),'exec'),ns)
 polygon=[[28.0,41.0],[28.025,41.0],[28.025,41.025],[28.0,41.025],[28.0,41.0]]
 grid=pd.DataFrame([{'lat':lat,'lon':lon,'Hub Rüzgar Hızı (m/s)':None if (y,x)==(1,1) else 5+y+x/10} for y,lat in enumerate([41.003,41.012,41.021]) for x,lon in enumerate([28.003,28.012,28.021])])
 original=grid.copy(deep=True);overlay=ns['surukle_ruzgar_overlay_uret'](grid,bosluklari_koru=True)
@@ -25,7 +28,7 @@ with sync_playwright() as p:
   page.route('https://mt1.google.com/**',lambda route:route.abort())
   page.set_content(html)
   page.evaluate("window.messages=[];window.addEventListener('message',e=>{if(e.data.type==='streamlit:setComponentValue')messages.push(e.data.value)})")
-  args={'polygon':polygon,'center':[41.0125,28.0125],'km':10,'height':570,'wind':overlay}
+  args={'polygon':polygon,'center':[41.0125,28.0125],'working_polygon':ns['kare_calisma_alani_uret'](polygon,10,[41.0125,28.0125]),'km':10,'height':570,'wind':overlay}
   page.evaluate("a=>window.postMessage({type:'streamlit:render',args:a},'*')",args)
   page.wait_for_function('initialized && document.querySelectorAll("#wind-layer rect").length===8')
   def registration():
@@ -48,7 +51,10 @@ with sync_playwright() as p:
   page.mouse.move(width*.35,200);page.mouse.wheel(0,-100);page.wait_for_timeout(100);registration()
   assert page.evaluate('args.center')==args['center'] and page.evaluate('messages.length')==0
   page.set_viewport_size({'width':width+80,'height':700});page.wait_for_timeout(100);registration()
-  assert page.locator('#plant-clip polygon').get_attribute('points')==page.locator('#boundary').get_attribute('points')
+  assert page.locator('#study-clip polygon').get_attribute('points')!=page.locator('#boundary').get_attribute('points')
+  assert page.evaluate('''()=>{const clip=document.querySelector('#study-clip polygon').getBBox(),square=document.getElementById('square').getBBox();return ['x','y','width','height'].every(k=>Math.abs(clip[k]-square[k])<.001)}''')
+  assert page.evaluate('args.working_polygon')==[list(p) for p in args['working_polygon']]
+  assert page.evaluate('''()=>{const layer=document.getElementById('wind-layer').getBBox(),square=document.getElementById('square').getBBox();return ['x','y','width','height'].every(k=>Math.abs(layer[k]-square[k])<.001)}''')
   print('PASS satellite/boundary/wind registration at width',width,'after pan, zoom and resize; pan leaves geographic boundary and working center unchanged',flush=True)
   if width==390:page.screenshot(path='/tmp/maki_map25_wind.png')
   c=page.locator('#square-handle').bounding_box();page.mouse.move(c['x']+c['width']/2,c['y']+c['height']/2);page.mouse.down();page.mouse.move(c['x']+c['width']/2+30,c['y']+c['height']/2+20,steps=4);page.mouse.up()

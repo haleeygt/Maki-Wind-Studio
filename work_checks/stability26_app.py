@@ -3,7 +3,7 @@ from pathlib import Path
 import ast,base64,io,json
 import numpy as np,pandas as pd,tifffile
 from streamlit.testing.v1 import AppTest
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.27_SABIT_SAHA_RENK_OLCEGI.py'
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py'
 source=SOURCE.read_text();node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='_gwa_raster_bytes_getir')
 buf=io.BytesIO();tifffile.imwrite(buf,np.linspace(5,7,40000,dtype=np.float32).reshape(200,200),extratags=[(33550,'d',3,(.002,.002,0),False),(33922,'d',6,(0,0,0,27.8,41.2,0),False),(34735,'H',8,(1,1,0,1,2048,0,1,4326),False)])
 replacement="def _gwa_raster_bytes_getir(*args, **kwargs):\n    raise RuntimeError('TEST_RASTER_MEMORY_LIMIT: raster parçası bellek sınırını aşıyor')\n"

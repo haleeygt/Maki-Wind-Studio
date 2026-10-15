@@ -3,9 +3,9 @@ from pathlib import Path
 import ast,base64,io,json
 import numpy as np,pandas as pd,tifffile
 from streamlit.testing.v1 import AppTest
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.27_SABIT_SAHA_RENK_OLCEGI.py'
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py'
 source=SOURCE.read_text();node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='_gwa_raster_bytes_getir')
-buf=io.BytesIO();tifffile.imwrite(buf,np.linspace(5,7,40000,dtype=np.float32).reshape(200,200),extratags=[(33550,'d',3,(.002,.002,0),False),(33922,'d',6,(0,0,0,27.8,41.2,0),False),(34735,'H',8,(1,1,0,1,2048,0,1,4326),False)])
+buf=io.BytesIO();tifffile.imwrite(buf,np.linspace(5,7,40000,dtype=np.float32).reshape(200,200),extratags=[(33550,'d',3,(.004,.004,0),False),(33922,'d',6,(0,0,0,27.6,41.4,0),False),(34735,'H',8,(1,1,0,1,2048,0,1,4326),False)])
 replacement="def _gwa_raster_bytes_getir(*args, **kwargs):\n    return base64.b64decode("+repr(base64.b64encode(buf.getvalue()).decode())+"), 'SYNTHETIC TEST RASTER', 'test', None\n"
 lines=source.splitlines(True);lines[node.lineno-1:node.end_lineno]=[replacement];source=''.join(lines)
 a=AppTest.from_string(source,default_timeout=60).run();assert not a.exception,a.exception
@@ -52,3 +52,28 @@ assert a.session_state['app_state']['wind_map_center'] is None
 reset_args=next(json.loads(x.proto.json_args) for x in a.get('component_instance') if 'km' in json.loads(x.proto.json_args))
 assert reset_args['wind']['scale']==initial_scale
 print('PASS one drag event updates only the working center; Reset persists across rerun without replaying stale component value',flush=True)
+
+# Relocate the entire square away from the plant, still within the synthetic raster.
+states=a._tree.get_widget_states()
+component=next(x for x in a.get('component_instance') if 'km' in json.loads(x.proto.json_args))
+move=states.widgets.add();move.id=component.proto.id
+move.json_value=json.dumps({'action':'move','event_id':'test_move_28_far','lat':41.14,'lon':28.16})
+a._run(states);assert not a.exception,a.exception
+far=next(json.loads(x.proto.json_args) for x in a.get('component_instance') if 'km' in json.loads(x.proto.json_args))
+assert far['polygon']==args['polygon']
+assert far['working_polygon']!=args['working_polygon']
+assert min(p[0] for p in far['working_polygon'])>max(p[0] for p in args['polygon'])
+assert min(far['wind']['longitudes'])>max(args['wind']['longitudes'])
+assert min(far['wind']['latitudes'])>max(args['wind']['latitudes'])
+assert np.isfinite(np.array(far['wind']['matrix'],dtype=float)).sum()>100
+assert not np.isclose(np.nanmean(np.array(far['wind']['matrix'],dtype=float)),np.nanmean(np.array(args['wind']['matrix'],dtype=float)))
+assert far['wind']['scale']==initial_scale
+for current in [args,moved_args,reset_args,far]:
+ corners=current['working_polygon'];wind=current['wind']
+ # Point-in-polygon excludes some boundary nodes; centers remain within one grid step.
+ for axis,index in [('longitudes',0),('latitudes',1)]:
+  lo=min(p[index] for p in corners);hi=max(p[index] for p in corners)
+  step=(hi-lo)/59
+  assert lo-1e-8<=min(wind[axis])<=lo+step+1e-8
+  assert hi-step-1e-8<=max(wind[axis])<=hi+1e-8
+print('PASS square completely outside plant receives a newly computed geographic field; sampled nodes cover orange geometry within one grid step, boundary and scale unchanged',flush=True)

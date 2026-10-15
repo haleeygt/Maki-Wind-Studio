@@ -4,7 +4,7 @@ import ast,math
 import numpy as np,pandas as pd
 from pandas.testing import assert_frame_equal
 from playwright.sync_api import sync_playwright
-ROOT=Path(__file__).resolve().parents[1];NEW=ROOT/'appv11.11.27_SABIT_SAHA_RENK_OLCEGI.py';OLD=ROOT/'previous_versions/appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
+ROOT=Path(__file__).resolve().parents[1];NEW=ROOT/'appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py';OLD=ROOT/'previous_versions/appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
 def extract(path):
  ns={'np':np,'pd':pd,'math':math}
  for n in ast.parse(path.read_text()).body:
@@ -46,13 +46,13 @@ with sync_playwright() as p:
  page=browser.new_page(viewport={'width':540,'height':650});page.route('https://mt1.google.com/**',lambda route:route.abort());page.set_content(html)
  colors=[]
  for overlay,center in zip(overlays,[[41.04,28.04],[41.015,28.015]]):
-  page.evaluate("a=>window.postMessage({type:'streamlit:render',args:a},'*')",{'polygon':polygon,'center':center,'km':10,'wind':overlay,'height':570})
+  page.evaluate("a=>window.postMessage({type:'streamlit:render',args:a},'*')",{'polygon':polygon,'center':center,'working_polygon':[[27.95,40.95],[28.1,40.95],[28.1,41.1],[27.95,41.1],[27.95,40.95]],'km':10,'wind':overlay,'height':570})
   page.wait_for_function('center=>initialized && args.center[0]===center[0] && args.center[1]===center[1] && document.querySelector("#wind-layer")!==null',arg=center)
   colors.append(page.locator('#wind-layer rect[data-value="6.5"]').get_attribute('fill'))
   assert 'Sabit saha ölçeği' in page.locator('#range').inner_text()
  assert colors[0]==colors[1],colors
  raw_flat=new['surukle_ruzgar_overlay_uret'](flat,bosluklari_koru=True)
- page.evaluate("a=>window.postMessage({type:'streamlit:render',args:a},'*')",{'polygon':polygon,'center':[41.015,28.015],'km':10,'wind':raw_flat,'height':570})
+ page.evaluate("a=>window.postMessage({type:'streamlit:render',args:a},'*')",{'polygon':polygon,'center':[41.015,28.015],'working_polygon':[[27.95,40.95],[28.1,40.95],[28.1,41.1],[27.95,41.1],[27.95,40.95]],'km':10,'wind':raw_flat,'height':570})
  page.wait_for_function('args.wind.vmin===6.5 && args.wind.vmax===6.5')
  assert page.locator('#wind-layer rect[data-value="6.5"]').first.get_attribute('fill')!='rgb(23,59,255)'
  print('PASS actual browser renders identical colors for same values after moving center; constant field no longer maps automatically to minimum blue',flush=True)

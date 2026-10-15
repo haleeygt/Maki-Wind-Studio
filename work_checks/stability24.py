@@ -6,16 +6,16 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 ROOT=Path(__file__).resolve().parents[1]
 OLD=ROOT/'previous_versions/appv11.11.23_TARAYICI_AKISINA_DONUS.py'
-NEW=ROOT/'appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py'
+NEW=ROOT/'appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
 warnings.filterwarnings('ignore',category=UserWarning)
 def reader(path):
- ns={'np':np,'pd':pd,'re':re,'RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}
+ ns={'np':np,'pd':pd,'re':re,'__file__':str(path),'RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}
  tree=ast.parse(path.read_text())
  for n in tree.body:
-  if isinstance(n,ast.FunctionDef) and n.name in {'_loggernet_okuma_kilidi','loggernet_oku'}:
+  if isinstance(n,ast.FunctionDef) and n.name in {'_loggernet_oku_dogrudan','_loggernet_cache_dizini','_loggernet_okuma_kilidi','loggernet_oku'}:
    n.decorator_list=[]
    exec(compile(ast.Module(body=[n],type_ignores=[]),str(path),'exec'),ns)
- return ns['loggernet_oku']
+ return ns.get('_loggernet_oku_dogrudan', ns['loggernet_oku'])
 if '--measure' in sys.argv:
  import resource,hashlib
  fn=reader(Path(sys.argv[2]));data=Path(sys.argv[3]).read_bytes();result=fn(data)

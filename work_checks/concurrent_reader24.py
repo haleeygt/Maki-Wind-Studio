@@ -3,10 +3,10 @@ import ast,contextlib,threading,time,sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import numpy as np,pandas as pd,re,streamlit as st
-source=Path(__file__).resolve().parents[1]/'appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py'
-ns={'pd':pd,'np':np,'st':st,'re':re,'__name__':'maki_reader_concurrency_test','RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}
+source=Path(__file__).resolve().parents[1]/'appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
+ns={'pd':pd,'np':np,'st':st,'re':re,'__file__':str(source),'__name__':'maki_reader_concurrency_test','RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}
 for node in ast.parse(source.read_text()).body:
- if isinstance(node,ast.FunctionDef) and node.name in {'_loggernet_okuma_kilidi','loggernet_oku'}:
+ if isinstance(node,ast.FunctionDef) and node.name in {'_loggernet_oku_dogrudan','_loggernet_cache_dizini','_loggernet_okuma_kilidi','loggernet_oku'}:
   exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),ns)
 assert ns['_loggernet_okuma_kilidi']() is ns['_loggernet_okuma_kilidi']()
 original=pd.read_csv
@@ -25,7 +25,7 @@ try:
  start=threading.Barrier(2)
  def read(speed):
   start.wait()
-  return ns['loggernet_oku'](f'TIMESTAMP,WS1_Avg\n2025-01-01 00:00:00,{speed}\n'.encode())
+  return ns['_loggernet_oku_dogrudan'](f'TIMESTAMP,WS1_Avg\n2025-01-01 00:00:00,{speed}\n'.encode())
  with ThreadPoolExecutor(max_workers=2) as pool:
   futures=[pool.submit(read,v) for v in [6,7]]
   results=[future.result(timeout=30) for future in futures]

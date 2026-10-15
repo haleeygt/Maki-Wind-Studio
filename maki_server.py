@@ -1,6 +1,8 @@
-"""Cloud entry point for the existing browser-based application."""
-import streamlit as st
-app = st.App('appv11.11.25_SABIT_SINIR_RUZGAR_HARITASI.py')
+"""Standard Streamlit cloud entry; Windows background upload service is disabled."""
+from pathlib import Path
+import runpy
 
-if __name__ == '__main__':
-    app.run()
+runpy.run_path(
+    str(Path(__file__).with_name('appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py')),
+    run_name='__main__',
+)

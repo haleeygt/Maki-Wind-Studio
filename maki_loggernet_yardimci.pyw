@@ -1,4 +1,4 @@
-"""Maki LoggerNet v11.11.21: read-only sender; Python standard library only."""
+"""Maki LoggerNet v11.11.22: read-only sender; Python standard library only."""
 import hashlib
 import json
 import os
@@ -120,7 +120,7 @@ def settings():
     if sys.platform != 'win32':
         raise RuntimeError('Bu yardımcı Windows içindir.')
     existing = json.loads(CONFIG.read_text(encoding='utf-8')) if CONFIG.exists() else {}
-    window = tk.Tk(); window.title('Maki LoggerNet bağlantısı · v11.11.21'); window.geometry('620x330')
+    window = tk.Tk(); window.title('Maki LoggerNet bağlantısı · v11.11.22'); window.geometry('620x330')
     url = tk.StringVar(value=existing.get('url', PROJECT_URL))
     folder = tk.StringVar(value=existing.get('folder', r'C:\Campbellsci\veriler'))
     enabled = tk.BooleanVar(value=existing.get('enabled', True))
@@ -155,7 +155,7 @@ def settings():
             messagebox.showinfo('Maki Wind Studio', 'Bağlantı kaydedildi. Chrome’u kapatabilirsiniz.' if enabled.get() else 'Otomatik takip kapatıldı (en geç 5 dakika içinde).')
             window.destroy()
         except Exception:
-            messagebox.showerror('Bağlantı kurulamadı', 'Proje bağlantısını, klasörü ve interneti kontrol edin. Sunucuda v11.11.21 aktarım servisi etkin olmalıdır. Hiçbir ölçüm dosyası değiştirilmedi.')
+            messagebox.showerror('Bağlantı kurulamadı', 'Proje bağlantısını, klasörü ve interneti kontrol edin. Sunucuda v11.11.22 aktarım servisi etkin olmalıdır. Hiçbir ölçüm dosyası değiştirilmedi.')
     tk.Button(window, text='Kaydet ve bağlan', command=save).pack(pady=6)
     window.mainloop()
 

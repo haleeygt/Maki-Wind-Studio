@@ -62,7 +62,7 @@ try:
   item=next(x for x in store._bulut_manifest_oku()['files'] if x['name']=='Large_WindData.dat')
   assert (root/(item['sha256']+'.dat')).read_bytes()==original
   print('PASS real LoggerNet file: '+str(len(original))+' bytes, SHA256 identical',flush=True)
- app=ast.parse(Path('appv11.11.21_LOGGERNET_ARKAPLAN.py').read_text())
+ app=ast.parse(Path('appv11.11.22_YENI_BULUT_BAGLANTISI.py').read_text())
  module=ast.parse(Path('maki_transfer.py').read_text())
  a=next(n for n in app.body if isinstance(n,ast.FunctionDef) and n.name=='loggernet_oku');a.decorator_list=[]
  b=next(n for n in module.body if isinstance(n,ast.FunctionDef) and n.name=='loggernet_oku')

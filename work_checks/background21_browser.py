@@ -22,7 +22,9 @@ with sync_playwright() as p:
  with page.expect_download() as download:
   page.get_by_role('button',name='Windows LoggerNet yardımcısını indir').click()
  text=Path(download.value.path()).read_text()
- assert "PROJECT_URL = 'https://" in text and pid in text
+ assert ('PROJECT_URL = ' + repr(URL.rstrip('/') + '/?pid=' + pid)) in text
+ assert 'hpypuh736bbxr6pjr9jua4' not in text
+ assert 'msid=' not in next(line for line in text.splitlines() if line.startswith('PROJECT_URL ='))
  print('PASS private helper download is paired only with the active project',flush=True)
  data=('TIMESTAMP,WS1_Avg,WS2_Avg\n'+''.join(f'2025-01-01 {i//6:02}:{i%6*10:02}:00,6.2,6.0\n' for i in range(144))).encode()
  digest=hashlib.sha256(data).hexdigest()

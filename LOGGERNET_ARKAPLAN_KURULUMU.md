@@ -1,4 +1,4 @@
-# Maki Wind Studio v11.11.21
+# Maki Wind Studio v11.11.22
 
 Bu sürüm mevcut uygulama ve tarayıcı aktarımını korur; Chrome kapalıyken çalışabilen Windows yardımcısı ile yetkilendirilmiş HTTPS aktarımı ekler. Ham, temiz ve tahmini veri ayrımı ve enerji hesapları değiştirilmedi. Aktarım bütünlüğü, ölçümlerin bilimsel doğrulanması anlamına gelmez.
 
@@ -31,7 +31,7 @@ Paket klasöründe, mevcut Windows Python 3.14 ile:
 Yalnızca tam uygulama dosyasını klasik modda açmak için (arka plan servisi etkin olmaz):
 
 ```powershell
-& "$env:LOCALAPPDATA\Python\pythoncore-3.14-64\python.exe" -m streamlit run .\appv11.11.21_LOGGERNET_ARKAPLAN.py
+& "$env:LOCALAPPDATA\Python\pythoncore-3.14-64\python.exe" -m streamlit run .\appv11.11.22_LOGGERNET_ARKAPLAN.py
 ```
 
 ## Doğrulama
@@ -41,3 +41,7 @@ Linux ortamında gerçek çalışan HTTP sunucusu ve stdlib yardımcı istemcisi
 Gerçek Chromium oturumunda yardımcı indirmesi proje kimliğiyle eşleştirildi; tarayıcı kaynak sekmesi olmadan HTTP aktarımı panelde otomatik göründü, klasör seçici çağrılmadı. Mevcut iki tarayıcı paylaşımı, proje yalıtımı, metadata birleştirme, manuel veri korunması ve doğrudan enerji sayfası geçişi geçti. Enerjide temiz veri kullanımı, eksikte yıllık sonuç baskılama, yinelenen zamanlar ve shear kontrolleri geçti.
 
 Windows/Python 3.14 otomatik başlangıcı ve Community Cloud canlı dağıtımı doğrulanmadı. Windographer temiz veri eşdeğerliği, bağımsız tamamlama enerjisi doğrulaması, nihai AEP, gerçek P50/P75/P90 ve GWA raster doğruluğu önceki sürümdeki gibi açık işlerdir.
+
+## v11.11.22 bağlantı düzeltmesi
+
+Projeye özel yardımcı, açık uygulamanın `st.context.url` adresinden hazırlanır. Önceki bulut sunucusuna sabit bağlantı kaldırıldı. Yeni dağıtımda yardımcınızı yeniden indirin. Sadece aktif projenin pid değeri alınır; tarayıcı msid değeri eklenmez. Aktarım ve enerji hesapları değişmedi.

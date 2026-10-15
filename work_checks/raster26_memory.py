@@ -2,7 +2,7 @@
 import ast,json,os,resource,subprocess,sys,tempfile
 from pathlib import Path
 import numpy as np,tifffile
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py'
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.29_COKLU_DOSYA_BELLEK_KONTROLU.py'
 def sampler():
  tree=ast.parse(SOURCE.read_text());node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_gwa_geotiff_ornekle')
  ns={'np':np};exec(compile(ast.Module(body=[node],type_ignores=[]),str(SOURCE),'exec'),ns)

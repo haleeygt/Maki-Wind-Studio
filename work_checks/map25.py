@@ -3,7 +3,7 @@ import ast,json,math,re
 from pathlib import Path
 import numpy as np,pandas as pd
 from playwright.sync_api import sync_playwright
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py';tree=ast.parse(SOURCE.read_text())
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.29_COKLU_DOSYA_BELLEK_KONTROLU.py';tree=ast.parse(SOURCE.read_text())
 node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='suruklenebilir_calisma_karesi')
 html=next(n.value.value for n in ast.walk(node) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='html' for t in n.targets))
 helper=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='surukle_ruzgar_overlay_uret')

@@ -1,1 +1,3 @@
 .maki_runtime/
+__pycache__/
+*.pyc

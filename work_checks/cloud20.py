@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 ROOT=Path(__file__).resolve().parents[1]
-SOURCE=ROOT/'appv11.11.20_ORTAK_BULUT_PROJESI.py'
+SOURCE=ROOT/'appv11.11.21_LOGGERNET_ARKAPLAN.py'
 tree=ast.parse(SOURCE.read_text())
 names={'_bulut_proje_dizini','_bulut_manifest_oku','_bulut_manifest_yaz','_bulut_kayitlari',
 'bulut_loggernet_yayinla','bulut_proje_ayarlarini_esitle','bulut_proje_verisini_al',

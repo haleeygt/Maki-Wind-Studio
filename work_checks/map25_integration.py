@@ -3,7 +3,7 @@ from pathlib import Path
 import ast,base64,io,json
 import numpy as np,pandas as pd,tifffile
 from streamlit.testing.v1 import AppTest
-ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.30_YENIDEN_CALISMA_BELLEK_KORUMASI.py'
+ROOT=Path(__file__).resolve().parents[1];SOURCE=ROOT/'appv11.11.31_TURBIN_RUZGAR_KATMANI_DUZELTMESI.py'
 source=SOURCE.read_text();node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='_gwa_raster_bytes_getir')
 buf=io.BytesIO();tifffile.imwrite(buf,np.linspace(5,7,40000,dtype=np.float32).reshape(200,200),extratags=[(33550,'d',3,(.004,.004,0),False),(33922,'d',6,(0,0,0,27.6,41.4,0),False),(34735,'H',8,(1,1,0,1,2048,0,1,4326),False)])
 replacement="def _gwa_raster_bytes_getir(*args, **kwargs):\n    return base64.b64decode("+repr(base64.b64encode(buf.getvalue()).decode())+"), 'SYNTHETIC TEST RASTER', 'test', None\n"
@@ -77,3 +77,16 @@ for current in [args,moved_args,reset_args,far]:
   assert lo-1e-8<=min(wind[axis])<=lo+step+1e-8
   assert hi-step-1e-8<=max(wind[axis])<=hi+1e-8
 print('PASS square completely outside plant receives a newly computed geographic field; sampled nodes cover orange geometry within one grid step, boundary and scale unchanged',flush=True)
+
+# Manual editor receives only raster coordinates, including when the mast lies outside this window.
+a.session_state['app_state']['manual_turbine_points']=[{'lat':41.012,'lon':28.012,'ad':'T1'}]
+a.radio(key='turbin_yerlesim_modu_v1191').set_value('Manuel / Excel yerleşimi').run()
+assert not a.exception,a.exception
+manual=next(json.loads(x.proto.json_args) for x in a.get('component_instance') if 'maki_google_drag_v3_' in x.proto.component_name)
+assert manual['wind']
+assert min(manual['wind']['latitudes'])>41.09
+assert min(manual['wind']['longitudes'])>28.09
+assert manual['wind']['scale']==initial_scale
+assert manual['polygon']==args['polygon']
+assert max(p[1] for p in manual['view_bounds'])-min(p[1] for p in manual['view_bounds'])<.3
+print('PASS full-page manual editor excludes out-of-window mast control coordinates from wind matrix and viewport bounds',flush=True)

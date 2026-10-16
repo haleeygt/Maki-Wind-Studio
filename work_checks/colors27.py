@@ -4,7 +4,7 @@ import ast,math
 import numpy as np,pandas as pd
 from pandas.testing import assert_frame_equal
 from playwright.sync_api import sync_playwright
-ROOT=Path(__file__).resolve().parents[1];NEW=ROOT/'appv11.11.31_TURBIN_RUZGAR_KATMANI_DUZELTMESI.py';OLD=ROOT/'previous_versions/appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
+ROOT=Path(__file__).resolve().parents[1];NEW=ROOT/'appv11.11.32_SEFFAF_YILLIK_ENERJI_VE_KAPASITE.py';OLD=ROOT/'previous_versions/appv11.11.26_KARARLILIK_VE_TEMIZ_EKRAN.py'
 def extract(path):
  ns={'np':np,'pd':pd,'math':math}
  for n in ast.parse(path.read_text()).body:

@@ -3,7 +3,7 @@ import ast,json,math,os,re,resource,subprocess,sys,tempfile,weakref
 from pathlib import Path
 import numpy as np,pandas as pd,streamlit as st
 ROOT=Path(__file__).resolve().parents[1]
-NEW=ROOT/'appv11.11.31_TURBIN_RUZGAR_KATMANI_DUZELTMESI.py'
+NEW=ROOT/'appv11.11.32_SEFFAF_YILLIK_ENERJI_VE_KAPASITE.py'
 OLD=ROOT/'previous_versions/appv11.11.28_CALISMA_KARESINDE_RUZGAR_HARITASI.py'
 fixture=os.environ.get('MAKI_LARGE_FIXTURE')
 if '--worker' not in sys.argv:

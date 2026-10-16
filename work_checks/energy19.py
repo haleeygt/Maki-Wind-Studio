@@ -5,14 +5,14 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 ROOT=Path(__file__).resolve().parents[1]
-p=ROOT/'appv11.11.31_TURBIN_RUZGAR_KATMANI_DUZELTMESI.py'
+p=ROOT/'appv11.11.32_SEFFAF_YILLIK_ENERJI_VE_KAPASITE.py'
 ns={'pd':pd,'np':np,'re':re,'hashlib':hashlib,'json':json,'math':math,'datetime':datetime,
     'st':SimpleNamespace(session_state={}), 'app_state':{},
     'RUZGAR_KOLONLARI':['WS1_Avg','WS2_Avg','WS3_Avg','WS4_Avg']}
 names={'hiz_sensor_kolonlari','olcum_zaman_kontrolu','otomatik_olcum_kontrolu',
 'olcum_kalite_verisi','olcum_kapsama_raporu','enerji_kalite_durumu',
 'enerji_verisi_hesaplanabilir','enerji_shear_hesapla','sensor_yukseklik_tuple',
-'coklu_direk_hub_serisi_hazirla','turbin_uretimi_coklu_direk_hesapla'}
+'coklu_direk_hub_serisi_hazirla','enerji_yillik_gosterge_ozeti','enerji_girdileri_tutarli','turbin_uretimi_coklu_direk_hesapla'}
 for node in ast.parse(p.read_text()).body:
  if isinstance(node,ast.FunctionDef) and node.name in names:
   node.decorator_list=[]
